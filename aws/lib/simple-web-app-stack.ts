@@ -8,17 +8,21 @@ export class SimpleWebAppStack extends cdk.Stack {
     super(scope, id, props);
 
     const vpc = new ec2.Vpc(this, 'SimpleWebAppVPC', {
-      maxAzs: 2,
+      maxAzs: 1, // 試すだけなので 1
       cidr: '10.0.0.0/16',
       subnetConfiguration: [
         {
           cidrMask: 24,
           name: 'Public',
           subnetType: ec2.SubnetType.PUBLIC,
+        },
+        {
+          cidrMask: 24,
+          name: 'Private',
+          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
         }
       ],
-      // NATゲートウェイは使用しない
-      natGateways: 0,
+      natGateways: 1,
     });
 
     const webServerSG = new ec2.SecurityGroup(this, 'WebServerSecurityGroup', {
@@ -27,11 +31,12 @@ export class SimpleWebAppStack extends cdk.Stack {
       allowAllOutbound: true,
     });
 
-    // HTTP (80), HTTPS (443), SSH (22), React (3000) のアクセスを許可
+    // HTTP (80), HTTPS (443), SSH (22), React (3000), Proxy (8080) のアクセスを許可
     webServerSG.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), 'HTTP access');
     webServerSG.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), 'HTTPS access');
     webServerSG.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(22), 'SSH access');
     webServerSG.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(3000), 'React dev server');
+    webServerSG.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(8080), 'Proxy server');
 
     const apiServerSG = new ec2.SecurityGroup(this, 'APIServerSecurityGroup', {
       vpc,
@@ -39,10 +44,8 @@ export class SimpleWebAppStack extends cdk.Stack {
       allowAllOutbound: true,
     });
 
-    // SSH (22), API (3001) のアクセスを許可
-    apiServerSG.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(22), 'SSH access');
-    apiServerSG.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(3001), 'Node.js API server');
-
+    // WebサーバーからのSSHアクセスを許可（踏み台経由）
+    apiServerSG.addIngressRule(webServerSG, ec2.Port.tcp(22), 'SSH access via web server');
     // WebサーバーからのAPIアクセスを許可
     apiServerSG.addIngressRule(webServerSG, ec2.Port.tcp(3001), 'Access from web server');
 
@@ -99,6 +102,7 @@ export class SimpleWebAppStack extends cdk.Stack {
       'echo "Setup status: SUCCESS" >> /var/log/userdata.log'
     );
 
+    // Webサーバー（Public Subnet）
     const webServerInstance = new ec2.Instance(this, 'WebServerInstance', {
       vpc,
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
@@ -111,6 +115,7 @@ export class SimpleWebAppStack extends cdk.Stack {
       },
     });
 
+    // APIサーバー（Private Subnet）
     const apiServerInstance = new ec2.Instance(this, 'APIServerInstance', {
       vpc,
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
@@ -119,7 +124,7 @@ export class SimpleWebAppStack extends cdk.Stack {
       keyPair: keyPair,
       userData: apiUserData,
       vpcSubnets: {
-        subnetType: ec2.SubnetType.PUBLIC,
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
       },
     });
 
@@ -127,9 +132,7 @@ export class SimpleWebAppStack extends cdk.Stack {
       instanceId: webServerInstance.instanceId,
     });
 
-    const apiServerEIP = new ec2.CfnEIP(this, 'APIServerEIP', {
-      instanceId: apiServerInstance.instanceId,
-    });
+    // ---------------------------------------------------------------
 
     new cdk.CfnOutput(this, 'WebServerInstanceId', {
       value: webServerInstance.instanceId,
@@ -146,9 +149,9 @@ export class SimpleWebAppStack extends cdk.Stack {
       description: 'Web Server Public IP Address',
     });
 
-    new cdk.CfnOutput(this, 'APIServerPublicIP', {
-      value: apiServerEIP.ref,
-      description: 'API Server Public IP Address',
+    new cdk.CfnOutput(this, 'APIServerPrivateIP', {
+      value: apiServerInstance.instancePrivateIp,
+      description: 'API Server Private IP Address',
     });
 
     new cdk.CfnOutput(this, 'WebServerSSHCommand', {
@@ -157,8 +160,8 @@ export class SimpleWebAppStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'APIServerSSHCommand', {
-      value: `ssh -i ~/.ssh/${keyPair.keyPairName}.pem ec2-user@${apiServerEIP.ref}`,
-      description: 'SSH Command for API Server',
+      value: `ssh -i ~/.ssh/${keyPair.keyPairName}.pem -o ProxyCommand="ssh -i ~/.ssh/${keyPair.keyPairName}.pem -W %h:%p ec2-user@${webServerEIP.ref}" ec2-user@${apiServerInstance.instancePrivateIp}`,
+      description: 'SSH Command for API Server (via Web Server as bastion)',
     });
 
     new cdk.CfnOutput(this, 'ReactAppURL', {
@@ -166,14 +169,14 @@ export class SimpleWebAppStack extends cdk.Stack {
       description: 'React Application URL',
     });
 
-    new cdk.CfnOutput(this, 'APIURL', {
-      value: `http://${apiServerEIP.ref}:3001`,
-      description: 'API Server URL',
+    new cdk.CfnOutput(this, 'APIInternalURL', {
+      value: `http://${apiServerInstance.instancePrivateIp}:3001`,
+      description: 'API Server Internal URL (accessible from Web Server)',
     });
 
-    new cdk.CfnOutput(this, 'APITestURL', {
-      value: `http://${apiServerEIP.ref}:3001/api/data`,
-      description: 'API Test Endpoint',
+    new cdk.CfnOutput(this, 'APITestInternalURL', {
+      value: `http://${apiServerInstance.instancePrivateIp}:3001/api/data`,
+      description: 'API Test Endpoint (accessible from Web Server)',
     });
   }
 }

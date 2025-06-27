@@ -11,8 +11,12 @@ function App() {
 
   const fetchApiData = async () => {
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${API_BASE_URL}/api/data`);
+      const response = await fetch('/api/data', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       
       if (!response.ok) {
         throw new Error(`API request failed: ${response.status}`);
