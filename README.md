@@ -1,7 +1,5 @@
 # Simple EC2 Web Application
 
-この構成では**NAT-Gatewayを使用していません**。
-
 ## 前提条件
 
 - AWS CLIが設定済みであること
@@ -49,15 +47,15 @@ chmod +x scripts/setup-env.sh
 ```
 
 ### 4. アプリケーションのデプロイ
-
-バックエンドとフロントエンドを順番にデプロイします。
-
 ```bash
 # バックエンドのデプロイ
 ./scripts/deploy-backend.sh
 
 # フロントエンドのデプロイ
 ./scripts/deploy-frontend.sh
+
+# Proxyサーバーのデプロイ
+./scripts/deploy-proxy-server.sh
 ```
 
 ## 注意事項
