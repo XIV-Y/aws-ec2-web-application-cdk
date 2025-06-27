@@ -1,5 +1,7 @@
 # Simple EC2 Web Application
 
+![名称未設定ファイル drawio (1)](https://github.com/user-attachments/assets/85e66bb8-d5d4-4190-b8d1-f817323e8f48)
+
 ## 前提条件
 
 - AWS CLIが設定済みであること
