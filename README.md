@@ -1,5 +1,11 @@
 # Simple EC2 Web Application
 
+# <<<<<<< HEAD
+
+![名称未設定ファイル drawio (1)](https://github.com/user-attachments/assets/85e66bb8-d5d4-4190-b8d1-f817323e8f48)
+
+> > > > > > > 33edbeb2d8e77b85ead3d4abc8634549b07f6073
+
 ## 前提条件
 
 - AWS CLI が設定済みであること
@@ -47,8 +53,6 @@ chmod +x scripts/setup-env.sh
 ```
 
 ### 4. アプリケーションのデプロイ
-
-バックエンドとフロントエンドを順番にデプロイします。
 
 ```bash
 # バックエンドのデプロイ
