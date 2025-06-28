@@ -1,18 +1,16 @@
 # Simple EC2 Web Application
 
-この構成では**NAT-Gatewayを使用していません**。
-
 ## 前提条件
 
-- AWS CLIが設定済みであること
-- AWS CDKがインストール済みであること  
-- 必要なAWS権限が設定されていること
+- AWS CLI が設定済みであること
+- AWS CDK がインストール済みであること
+- 必要な AWS 権限が設定されていること
 
 ## デプロイ手順
 
 ### 1. インフラストラクチャのデプロイ
 
-AWS CDKを使用してインフラストラクチャをデプロイします。
+AWS CDK を使用してインフラストラクチャをデプロイします。
 
 ```bash
 cdk deploy
@@ -20,7 +18,7 @@ cdk deploy
 
 ### 2. SSH キーの設定
 
-EC2インスタンスへのSSH接続に必要なキーペアを設定します。
+EC2 インスタンスへの SSH 接続に必要なキーペアを設定します。
 
 ```bash
 # キーペアIDの取得
@@ -33,9 +31,9 @@ aws ssm get-parameter --name "/ec2/keypair/${keypairID}" --with-decryption --que
 chmod 400 ~/.ssh/simple-web-app-keypair.pem
 ```
 
-### 3. IPアドレスの設定
+### 3. IP アドレスの設定
 
-環境変数とIPアドレスの設定を行います。
+環境変数と IP アドレスの設定を行います。
 
 ```bash
 # プロジェクトディレクトリに移動
@@ -56,11 +54,6 @@ chmod +x scripts/setup-env.sh
 # バックエンドのデプロイ
 ./scripts/deploy-backend.sh
 
-# フロントエンドのデプロイ
-./scripts/deploy-frontend.sh
+# Nginx + Reactアプリのデプロイ
+./scripts/deploy-nginx.sh
 ```
-
-## 注意事項
-
-- SSH接続時は適切なキーペアを使用してください
-- デプロイ前に必要なAWS権限が設定されていることを確認してください

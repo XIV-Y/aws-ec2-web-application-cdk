@@ -27,16 +27,14 @@ export class SimpleWebAppStack extends cdk.Stack {
 
     const webServerSG = new ec2.SecurityGroup(this, 'WebServerSecurityGroup', {
       vpc,
-      description: 'Security group for React web server',
+      description: 'Security group for Nginx web server',
       allowAllOutbound: true,
     });
 
-    // HTTP (80), HTTPS (443), SSH (22), React (3000), Proxy (8080) のアクセスを許可
+    // HTTP (80), HTTPS (443), SSH (22) のアクセスを許可
     webServerSG.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), 'HTTP access');
     webServerSG.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), 'HTTPS access');
     webServerSG.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(22), 'SSH access');
-    webServerSG.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(3000), 'React dev server');
-    webServerSG.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(8080), 'Proxy server');
 
     const apiServerSG = new ec2.SecurityGroup(this, 'APIServerSecurityGroup', {
       vpc,
@@ -53,25 +51,28 @@ export class SimpleWebAppStack extends cdk.Stack {
       keyPairName: 'simple-web-app-keypair',
     });
 
-    // Webサーバー用のUserData（Amazon Linux 2023版）
+    // Webサーバー用のUserData（Amazon Linux 2023版 + Nginx）
     const webUserData = ec2.UserData.forLinux({
       shebang: '#!/bin/bash -xe'
     });
     webUserData.addCommands(
       'dnf update -y',
-      'dnf install -y nodejs npm git',
+      'dnf install -y nginx',
       
-      // Node.jsとnpmのインストール確認
-      'node --version',
-      'npm --version',
+      // Nginxのバージョン確認
+      'nginx -v',
       
       // ディレクトリ作成
-      'mkdir -p /home/ec2-user/frontend',
-      'chown ec2-user:ec2-user /home/ec2-user/frontend',
+      'mkdir -p /var/www/html',
+      'mkdir -p /etc/nginx/conf.d',
+      'chown -R nginx:nginx /var/www/html',
+      
+      // Nginxを有効化・起動
+      'systemctl enable nginx',
+      'systemctl start nginx',
       
       'echo "=== Web server setup completed at $(date) ===" >> /var/log/userdata.log',
-      'echo "Node.js version: $(node --version)" >> /var/log/userdata.log',
-      'echo "npm version: $(npm --version)" >> /var/log/userdata.log',
+      'echo "Nginx version: $(nginx -v 2>&1)" >> /var/log/userdata.log',
       'echo "Setup status: SUCCESS" >> /var/log/userdata.log'
     );
 
@@ -164,9 +165,9 @@ export class SimpleWebAppStack extends cdk.Stack {
       description: 'SSH Command for API Server (via Web Server as bastion)',
     });
 
-    new cdk.CfnOutput(this, 'ReactAppURL', {
-      value: `http://${webServerEIP.ref}:3000`,
-      description: 'React Application URL',
+    new cdk.CfnOutput(this, 'WebAppURL', {
+      value: `http://${webServerEIP.ref}`,
+      description: 'Web Application URL (Nginx)',
     });
 
     new cdk.CfnOutput(this, 'APIInternalURL', {
