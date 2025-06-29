@@ -1,6 +1,6 @@
 # Simple EC2 Web Application
 
-![名称未設定ファイル drawio (2)](https://github.com/user-attachments/assets/08b606bb-9391-4385-a48f-9cd7a2159d9d)
+![名称未設定ファイル drawio (2)](https://github.com/user-attachments/assets/5be88cab-c05f-417d-8dda-12c74df481a9)
 
 ## 前提条件
 
